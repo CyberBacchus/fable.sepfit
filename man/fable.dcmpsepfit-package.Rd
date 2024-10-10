@@ -9,7 +9,7 @@
 Allows TimeGPT forecasts from the Nixtla API to be used in a tidy workflow with the modelling interface of 'fabletools'. This extends TimeGPT to provide enhanced model specification and management, performance evaluation methods, and model combination tools.
 }
 \author{
-\strong{Maintainer}: Your Name Your Last Name \email{your.email@example.com}
+\strong{Maintainer}: Yixin Shi \email{cyberbacchus@icloud.com}
 
 }
 \keyword{package}
