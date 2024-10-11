@@ -1,0 +1,13 @@
+
+```{r}
+library(fpp3)
+library(fable.sepfit)
+d <- AirPassengers
+model_data <- d |> tsibble::as_tsibble()
+fit <-model_data |> model(
+  SepFit()
+)
+x13_fit <- model_data |> fabletools::model(feasts::X_13ARIMA_SEATS()) |> components()
+trend <- x13_fit$trend
+seasonal <- x13_fit$seasonal
+```

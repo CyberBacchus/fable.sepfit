@@ -1,4 +1,4 @@
-Package: fable.dcmpsepfit
+Package: fable.sepfit
 Title: Decompose Time Series and Fit Trend and Seasonality Models
 Version: 0.1.0
 Authors@R: person("Yixin", "Shi", email = "cyberbacchus@icloud.com", role = c("aut", "cre"))
