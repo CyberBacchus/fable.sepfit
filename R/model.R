@@ -1,38 +1,32 @@
 #' @docType package
 #' @keywords package
-#' @import rlang
 "_PACKAGE"
 
 globalVariables("self")
 
 #' 
-train_sep_fit <- function(.data, formula, ...){
-  # 提取要建模的变量
-  response_var <- all.vars(formula)[1]
-  
-  # 转换为tsibble
+train_sep_fit <- function(.data, ...){
+  # 检查数据结构，确保其为tsibble
   model_data <- .data |> tsibble::as_tsibble()
-  
-  # 提取指定的变量
-  model_data <- model_data |> dplyr::select(!!sym(response_var))
-  
+
   # 进行X13分解
   x13_fit <- model_data |> 
-    fabletools::model(feasts::X_13ARIMA_SEATS(!!sym(response_var))) |>
+    fabletools::model(feasts::X_13ARIMA_SEATS()) |>
     components()
     
-  trend <- x13_fit$trend
-  seasonal <- x13_fit$seasonal
-  
-  # 建立趋势和季节性模型
+  # 创建包含趋势和季节性的新数据集
+  decomposed_data <- x13_fit |>
+    dplyr::select(trend, seasonal)
+
+  # 对X13分解后的数据进行建模
   trend_model <- fable::ARIMA(trend)
   seasonal_model <- fable::SNAIVE(seasonal)
-  
+
   # 训练模型
-  trend_fit <- fabletools::model(tsibble::as_tsibble(trend), trend_model)
-  seasonal_fit <- fabletools::model(tsibble::as_tsibble(seasonal), seasonal_model)
+  trend_fit <- fabletools::model(decomposed_data, trend_model)
+  seasonal_fit <- fabletools::model(decomposed_data, seasonal_model)
   
-  # 返回结构体
+  # 返回一个包含两个模型的结构体
   structure(
     list(
       trend_model = trend_fit,
@@ -53,12 +47,9 @@ train_sep_fit <- function(.data, formula, ...){
 #'
 #' @return A model object of class "sep_fit".
 #' @export
-SepFit <- function(formula, ...) {
-  # 使用fabletools::new_model来定义模型类
-  sep_fit <- fabletools::new_model_class("sep_fit", train = train_sep_fit)
-  
-  # 使用fabletools::new_model_definition来创建模型定义
-  fabletools::new_model_definition(sep_fit, !!rlang::enquo(formula), ...)
+SepFit <- function(formula, ...){
+  sep_fit <- new_model_class("sep_fit", train_sep_fit, specials = NULL)
+  new_model_definition(sep_fit, !!rlang::enquo(formula), ...)
 }
 
 #' Forecast method for SepFit models
@@ -89,15 +80,11 @@ forecast.sep_fit <- function(object, new_data, specials = NULL, ...) {
   # 计算最终预测值（趋势 * 季节性）
   final_forecast <- trend_values * seasonal_values
   
-  # 创建退化分布
+  # 创建分布对象
   forecast_dist <- distributional::dist_degenerate(final_forecast)
   
-  # 返回fable对象，将final_forecast作为.mean列
-  fabletools::new_data_frame(list(
-    index = new_data[[tsibble::index_var(new_data)]],  # 未来时间点
-    value = forecast_dist,  # 分布对象
-    .mean = final_forecast  # 预测的均值
-  ), class = "fable", response = "value")
+  # 构建fable对象
+  fabletools::construct_fc(forecast_dist, new_data)
 }
 
 #' Obtain fitted values from a sepfit model
@@ -108,9 +95,6 @@ forecast.sep_fit <- function(object, new_data, specials = NULL, ...) {
 #' @return A vector of fitted values.
 #' @export
 fitted.sep_fit <- function(object, ...){
-  if(missing(formula)) {
-    stop("formula must be provided")
-  }
   trend_model <- object$trend_model
   seasonal_model <- object$seasonal_model
   
