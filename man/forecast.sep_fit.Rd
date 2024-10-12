@@ -2,16 +2,16 @@
 % Please edit documentation in R/model.R
 \name{forecast.sep_fit}
 \alias{forecast.sep_fit}
-\title{Forecast method for SepFit models}
+\title{SepFit模型的预测方法}
 \usage{
 \method{forecast}{sep_fit}(object, new_data, specials = NULL, ...)
 }
 \arguments{
-\item{object}{An object of class "sep_fit", typically the result of calling \code{SepFit()}}
+\item{object}{"sep_fit"类, 是调用\code{SepFit()}得到的结果}
 
-\item{new_data}{A tsibble of future time points to forecast}
+\item{new_data}{tsibble格式的未来数据}
 
-\item{specials}{Special arguments passed to underlying models (unused in this implementation)}
+\item{specials}{暂时用不到}
 
 \item{...}{Additional arguments passed to the forecasting process}
 }
@@ -19,6 +19,6 @@
 A fable containing the forecasts
 }
 \description{
-This function generates forecasts for SepFit models by separately forecasting
-the trend and seasonal components and then combining them.
+这一预测方法基于传递的trend_model、seasonal_model得到预测
+因为X-13ARIMA-SEATS方法是乘法分解，所以这一方法相乘得到序列整体预测结果
 }

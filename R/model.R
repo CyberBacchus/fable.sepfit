@@ -4,14 +4,20 @@
 
 globalVariables("self")
 
-#' 
-train_sep_fit <- function(.data, ...){
+#' 训练SepFit模型，组装结果
+train_sep_fit <- function(.data, specials, ...){
   # 检查数据结构，确保其为tsibble
   model_data <- .data |> tsibble::as_tsibble()
 
+  # 获得预测变量
+  mv <- tsibble::measured_vars(.data)
+
+  # 提取含指定变量的tsibble
+  model_data <- model_data |> dplyr::select(!!sym(mv))
+  
   # 进行X13分解
   x13_fit <- model_data |> 
-    fabletools::model(feasts::X_13ARIMA_SEATS()) |>
+    fabletools::model(feasts::X_13ARIMA_SEATS(!!sym(mv))) |>
     components()
     
   # 创建包含趋势和季节性的新数据集
@@ -20,58 +26,67 @@ train_sep_fit <- function(.data, ...){
 
   # 对X13分解后的数据进行建模
   trend_model <- fable::ARIMA(trend)
-  seasonal_model <- fable::SNAIVE(seasonal)
+  seasonal_model <- fable::ARIMA(seasonal)
 
   # 训练模型
   trend_fit <- fabletools::model(decomposed_data, trend_model)
   seasonal_fit <- fabletools::model(decomposed_data, seasonal_model)
+
+  trend_model_fitted <- trend_fit |> fitted()  |> dplyr::pull(.fitted)
+  seasonal_model_fitted <- seasonal_fit |> fitted()  |> dplyr::pull(.fitted)
+  seasonal_model_fitted[is.na(seasonal_model_fitted)] <- 1
+  fitted_values <- trend_model_fitted * seasonal_model_fitted
+
+  true_values <- model_data |> dplyr::pull(!!sym(mv))
+  residuals <- true_values - fitted_values
   
   # 返回一个包含两个模型的结构体
   structure(
     list(
       trend_model = trend_fit,
       seasonal_model = seasonal_fit,
-      decomposed = x13_fit
+      decomposed = x13_fit,
+      fitted_values = fitted_values,
+      residuals = residuals
     ),
     class = "sep_fit"
   )
 }
 
+# 这个specials暂时没有任何功能
 specials_sep_fit <- new_specials(
-  trend = function(type = c("linear", "ARIMA"), ...){
-    type <- match.arg(type)
-    list(type = type, ...)
+  season = function(period = NULL) {
+    stop("不支持`")
   },
-  season = function(method = c("SNAIVE", "TBATS"), ...){
-    method <- match.arg(method)
-    list(method = method, ...)
+  xreg = function(...) {
+    stop("不支持")
   }
 )
 
 
-#' sepfit: Decompose time series and fit models to trend and seasonality
+#' SepFit: 分解时间序列后对子序列分别拟合
 #'
-#' This function decomposes a time series into trend and seasonal components using X13,
-#' and fits an ARIMA model to the trend component and a SNAIVE model to the seasonal component.
+#' 这一函数使用X-13ARIMA-SEATS方法分解时间序列为趋势、季节性、残差子序列
+#' 使用ARIMA和SNAIVE等方式拟合子序列并组合预测结果
 #'
-#' @param formula A symbolic description of the model to be fitted.
-#' @param ... Additional arguments passed to the model fitting process.
+#' @param formula 暂时用不到
+#' @param ... 暂时不支持
 #'
-#' @return A model object of class "sep_fit".
+#' @return 模型类"sep_fit".
 #' @export
 SepFit <- function(formula, ...){
   sep_fit <- new_model_class("sep_fit", train_sep_fit, specials_sep_fit)
   new_model_definition(sep_fit, !!rlang::enquo(formula), ...)
 }
 
-#' Forecast method for SepFit models
+#' SepFit模型的预测方法
 #'
-#' This function generates forecasts for SepFit models by separately forecasting
-#' the trend and seasonal components and then combining them.
+#' 这一预测方法基于传递的trend_model、seasonal_model得到预测
+#' 因为X-13ARIMA-SEATS方法是乘法分解，所以这一方法相乘得到序列整体预测结果
 #'
-#' @param object An object of class "sep_fit", typically the result of calling `SepFit()`
-#' @param new_data A tsibble of future time points to forecast
-#' @param specials Special arguments passed to underlying models (unused in this implementation)
+#' @param object "sep_fit"类, 是调用`SepFit()`得到的结果
+#' @param new_data tsibble格式的未来数据
+#' @param specials 暂时用不到
 #' @param ... Additional arguments passed to the forecasting process
 #'
 #' @return A fable containing the forecasts
@@ -104,11 +119,7 @@ forecast.sep_fit <- function(object, new_data, specials = NULL, ...) {
 #' @return A vector of fitted values.
 #' @export
 fitted.sep_fit <- function(object, ...){
-  trend_model <- object$trend_model
-  seasonal_model <- object$seasonal_model
-  
-  fitted_values <- fable::fitted(trend_model) * fable::fitted(seasonal_model)
-  fitted_values
+  object$fitted_values
 }
 
 dist_symmetric_percentile <- function(x, percentile) {
@@ -122,10 +133,15 @@ mean.dist_symmetric_percentile <- function(x, ...){
 
 #' @export
 model_sum.sep_fit <- function(x){
-  "sepfit Model"
+  "分解-组合模型"
 }
 
 #' @export
 format.sep_fit <- function(x, ...){
   "sepfit Model"
+}
+
+#' @export
+residuals.sep_fit <- function(object, ...){
+  object$residuals
 }

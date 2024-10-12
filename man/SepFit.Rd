@@ -2,19 +2,19 @@
 % Please edit documentation in R/model.R
 \name{SepFit}
 \alias{SepFit}
-\title{sepfit: Decompose time series and fit models to trend and seasonality}
+\title{SepFit: 分解时间序列后对子序列分别拟合}
 \usage{
 SepFit(formula, ...)
 }
 \arguments{
-\item{formula}{A symbolic description of the model to be fitted.}
+\item{formula}{暂时用不到}
 
-\item{...}{Additional arguments passed to the model fitting process.}
+\item{...}{暂时不支持}
 }
 \value{
-A model object of class "sep_fit".
+模型类"sep_fit".
 }
 \description{
-This function decomposes a time series into trend and seasonal components using X13,
-and fits an ARIMA model to the trend component and a SNAIVE model to the seasonal component.
+这一函数使用X-13ARIMA-SEATS方法分解时间序列为趋势、季节性、残差子序列
+使用ARIMA和SNAIVE等方式拟合子序列并组合预测结果
 }

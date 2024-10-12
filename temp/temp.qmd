@@ -2,13 +2,18 @@
 install()
 library(fpp3)
 library(fable.sepfit)
-d <- AirPassengers
-model_data <- d |> tsibble::as_tsibble()
+
+load_all()
+model_data <- AirPassengers |>
+  tsibble::as_tsibble() |>
+  slice_head(n = 120)
 fit <- model_data |> model(
   SepFit(value)
 )
-fit |> forecast()
-x13_fit <- model_data |> fabletools::model(feasts::X_13ARIMA_SEATS()) |> components()
-trend <- x13_fit$trend
-seasonal <- x13_fit$seasonal
+fit |> fitted()
+fit |> residuals()
+fct <- fit |> forecast()
+fct |> accuracy(AirPassengers |>
+  tsibble::as_tsibble())
+fit |> report()
 ```
