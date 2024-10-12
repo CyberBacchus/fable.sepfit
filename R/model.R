@@ -37,6 +37,18 @@ train_sep_fit <- function(.data, ...){
   )
 }
 
+specials_sep_fit <- new_specials(
+  trend = function(type = c("linear", "ARIMA"), ...){
+    type <- match.arg(type)
+    list(type = type, ...)
+  },
+  season = function(method = c("SNAIVE", "TBATS"), ...){
+    method <- match.arg(method)
+    list(method = method, ...)
+  }
+)
+
+
 #' sepfit: Decompose time series and fit models to trend and seasonality
 #'
 #' This function decomposes a time series into trend and seasonal components using X13,
@@ -48,7 +60,7 @@ train_sep_fit <- function(.data, ...){
 #' @return A model object of class "sep_fit".
 #' @export
 SepFit <- function(formula, ...){
-  sep_fit <- new_model_class("sep_fit", train_sep_fit, specials = NULL)
+  sep_fit <- new_model_class("sep_fit", train_sep_fit, specials_sep_fit)
   new_model_definition(sep_fit, !!rlang::enquo(formula), ...)
 }
 
@@ -80,11 +92,8 @@ forecast.sep_fit <- function(object, new_data, specials = NULL, ...) {
   # 计算最终预测值（趋势 * 季节性）
   final_forecast <- trend_values * seasonal_values
   
-  # 创建分布对象
-  forecast_dist <- distributional::dist_degenerate(final_forecast)
-  
-  # 构建fable对象
-  fabletools::construct_fc(forecast_dist, new_data)
+  # 返回分布对象
+  distributional::dist_degenerate(final_forecast)
 }
 
 #' Obtain fitted values from a sepfit model
