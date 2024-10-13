@@ -1,19 +1,107 @@
 ```{r}
-install()
 library(fpp3)
-library(fable.sepfit)
-
 load_all()
+
 model_data <- AirPassengers |>
-  tsibble::as_tsibble() |>
+  as_tsibble() |>
   slice_head(n = 120)
+test_data <- AirPassengers |>
+  as_tsibble() |>
+  slice_tail(n = 24)
+
 fit <- model_data |> model(
   SepFit(value)
 )
-fit |> fitted()
-fit |> residuals()
+
+fit |> forecast()
 fct <- fit |> forecast()
 fct |> accuracy(AirPassengers |>
   tsibble::as_tsibble())
-fit |> report()
+```
+
+
+```{r}
+# 读取准备函数：设置主题、处理数据
+source("~/Github/临床供血预测/实证分析代码/functions/prepare.R")
+
+# 设置主题
+set_theme()
+
+# 获取处理后的数据
+df <- prepare_data_and_analysis("~/Github/临床供血预测/assets/data/20240614临床供血量统计V2.xls")$df
+df |> head()
+fit <- df |>
+  filter(year < 2020 & year > 2015) |>
+  model(
+    sepfit = SepFit(total)
+  )
+
+load_all()
+df |> head()
+fit <- df |>
+  filter(year < 2023) |>
+  model(
+    sepfit = SepFit(platelet)
+  )
+fit |> accuracy()
+fit |>
+  forecast(h = 12) |>
+  accuracy(df)
+
+
+fit <- df |>
+  filter(year < 2020 & year > 2014) |>
+  model(
+    sepfit = SepFit(total)
+  )
+fit |> accuracy()
+fit |>
+  forecast(h = 12) |>
+  accuracy(df)
+```
+
+# 现在的核心思路：X_13ARIMA_SEATS改seasoanl
+
+```{r}
+df |>
+  filter(year < 2020 & year > 2014)|> model(
+  X_13ARIMA_SEATS(total~seats(),transform("log"))
+) |> components() |> select(trend,seasonal)
+```
+
+## seasonal实现
+
+
+```{r}
+fit <- seas(as.ts(df |>
+  select(total)))
+trend <- fit |>
+  series("seats.trend")
+seasonal <- fit |>
+  series("seats.seasonal")
+decomposed_data <- df |> mutate(
+  trend = trend,
+  seasonal = seasonal
+)
+trend_model <- fable::ARIMA(decomposed_data |> select(trend))
+trend_fit <- fabletools::model(decomposed_data |> select(trend), trend_model)
+
+trend_fit <- decomposed_data |> model(ARIMA(trend))
+trend_fit |> forecast()
+trend_fit |> fitted()
+```
+
+
+```{r}
+model_data <- df
+mv <- tsibble::measured_vars(df)
+mv
+```
+
+
+```{r}
+fit |> fitted()
+fit |> residuals
+fit |> forecast(h=12) |> autoplot(df)
+
 ```

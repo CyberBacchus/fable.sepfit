@@ -6,34 +6,33 @@ globalVariables("self")
 
 #' 训练SepFit模型，组装结果
 train_sep_fit <- function(.data, specials, ...){
-  # 检查数据结构，确保其为tsibble
-  model_data <- .data |> tsibble::as_tsibble()
-
   # 获得预测变量
   mv <- tsibble::measured_vars(.data)
 
-  # 提取含指定变量的tsibble
-  model_data <- model_data |> dplyr::select(!!sym(mv))
+  # 检查数据结构，确保其为tsibble
+  model_data <- .data |> tsibble::as_tsibble() |> dplyr::select(!!sym(mv))
+
+  # 提取含指定变量的tsibble转为ts
+  model_data_ts <- model_data |> as.ts()
   
   # 进行X13分解
-  x13_fit <- model_data |> 
-    fabletools::model(feasts::X_13ARIMA_SEATS(!!sym(mv))) |>
-    components()
-    
+  x13_fit <- seas(model_data_ts)  # 修改这一行
+  
   # 创建包含趋势和季节性的新数据集
-  decomposed_data <- x13_fit |>
-    dplyr::select(trend, seasonal)
+  trend <- x13_fit |> series("seats.trend")
+  seasonal <- x13_fit |> series("seats.seasonal")
+
+  decomposed_data <- model_data |> mutate(
+    trend = trend,
+    seasonal = seasonal
+  )
 
   # 对X13分解后的数据进行建模
-  trend_model <- fable::ARIMA(trend)
-  seasonal_model <- fable::ARIMA(seasonal)
+  trend_fit <- decomposed_data |> fabletools::model(fable::ARIMA(trend))
+  seasonal_fit <- decomposed_data |> fabletools::model(fable::ARIMA(seasonal))
 
-  # 训练模型
-  trend_fit <- fabletools::model(decomposed_data, trend_model)
-  seasonal_fit <- fabletools::model(decomposed_data, seasonal_model)
-
-  trend_model_fitted <- trend_fit |> fitted()  |> dplyr::pull(.fitted)
-  seasonal_model_fitted <- seasonal_fit |> fitted()  |> dplyr::pull(.fitted)
+  trend_model_fitted <- trend_fit |> fitted() |> dplyr::pull(.fitted)
+  seasonal_model_fitted <- seasonal_fit |> fitted() |> dplyr::pull(.fitted)
   seasonal_model_fitted[is.na(seasonal_model_fitted)] <- 1
   fitted_values <- trend_model_fitted * seasonal_model_fitted
 
