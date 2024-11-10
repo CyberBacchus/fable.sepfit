@@ -16,7 +16,7 @@ train_sep_fit <- function(.data, specials, ...){
   model_data_ts <- model_data |> as.ts()
   
   # 进行X13分解
-  x13_fit <- seasonal::seas(model_data_ts)  # 修改这一行
+  x13_fit <- seasonal::seas(model_data_ts, transform.function = "log")  # 修改这一行
   
   # 创建包含趋势和季节性的新数据集
   trend <- x13_fit |> seasonal::series("seats.trend")
